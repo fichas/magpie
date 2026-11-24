@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/yetone/magpie/internal/catalog"
+	"github.com/yetone/magpie/internal/provider"
 )
 
 // The APIs are close cousins; everything below is the shape they have
@@ -302,6 +303,11 @@ type Request struct {
 	// (systemTexts): a Claude Code system prompt is tens of KB.
 	systemParts []string
 	systemRaw   []json.RawMessage
+
+	// from is the API the client asked in (afterParse): the AGY prompt
+	// profile takes an Anthropic Messages client's prompt alone
+	// (agyCompatFor).
+	from provider.Protocol
 
 	Model      string
 	System     string

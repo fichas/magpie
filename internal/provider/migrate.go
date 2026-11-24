@@ -297,7 +297,20 @@ func BuiltinRetired(id string) bool {
 	if id == "antigravity" && antigravityBuiltinForTest.Load() > 0 {
 		return false
 	}
+	if heldBuiltin(id) {
+		return false
+	}
 	return Movable(id) && retiredBuiltins[id]
+}
+
+// heldBuiltin is whether the user keeps the retired built-in id serving its
+// own accounts on this computer: Antigravity under
+// settings.AntigravityBuiltin, Google's Code Assist asked directly as a
+// native provider. Such a one is neither retired nor moved onto its plugin
+// by magpie itself (MoveRetiring, HandOver); a move the user makes, or one
+// made before, stands.
+func heldBuiltin(id string) bool {
+	return id == "antigravity" && settings.AntigravityBuiltin()
 }
 
 // antigravityBuiltinForTest counts the tests that serve the built-in
@@ -1052,6 +1065,9 @@ func MoveRetiring(ctx context.Context) map[string]error {
 	}
 	out := map[string]error{}
 	for _, id := range retiring() {
+		if heldBuiltin(id) {
+			continue
+		}
 		m, ok := MigrationOf(id)
 		switch {
 		case ok && m.State == MovePlugin:
@@ -1092,6 +1108,9 @@ func HandOver(ctx context.Context, accounts bool) map[string]error {
 	var pps []plugin.Provider
 	asked := false
 	for _, id := range MovableIDs() {
+		if heldBuiltin(id) {
+			continue
+		}
 		mv := movers[id]
 		m, ok := MigrationOf(id)
 		if ok && m.State == MoveRemoved {

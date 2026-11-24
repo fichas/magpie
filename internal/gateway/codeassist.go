@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yetone/magpie/internal/agycompat"
 	"github.com/yetone/magpie/internal/catalog"
 	"github.com/yetone/magpie/internal/lazyre"
 	"github.com/yetone/magpie/internal/provider"
@@ -120,7 +121,23 @@ var agTurnedAway = []string{
 	"you are opencode",
 	"you are a coding agent running in the codex cli",
 	"a coding assistant running inside pi",
+	// Claude Code's identity line, and its interactive mode's persona line
+	// after it: on a real Google AI Pro account through the built-in on
+	// gemini-4-argon (11-24), each alone was turned away 3 of 3 and each
+	// reworded went through 3 of 3 ("You're Claude Code, …", "… that
+	// assists users …"); "You're an interactive agent …" and "Act as an
+	// interactive agent …" were turned away too (agy-cli's #1151 found the
+	// first since 11-15, AsterGate's refusedphrases the second on 11-16)
+	agClaudeCodeLine,
+	agInteractiveLine,
 }
+
+// agClaudeCodeLine and agInteractiveLine are Claude Code's identity line
+// and its interactive mode's persona line, as agTurnedAway has them.
+const (
+	agClaudeCodeLine  = "you are claude code, anthropic's official cli for claude"
+	agInteractiveLine = "you are an interactive agent that helps users with software engineering tasks"
+)
 
 // agRFCLine is the line oh-my-pi (omp) starts its system prompt with, and
 // its advisor's and live mode's (omp 18.20.0), which Antigravity turns away
@@ -156,6 +173,8 @@ var agSaidAs = []func(string) string{
 	agYoure,
 	agYoure,
 	func(m string) string { return agInside.ReplaceAllString(m, "within") },
+	agYoure,
+	func(m string) string { return agHelps.ReplaceAllString(m, "assists") },
 }
 
 // agYoure is m, which starts "You are", starting "You're" instead.
@@ -169,6 +188,7 @@ var (
 	agRFCSaidAs = lazyre.New(`(?i)(key)(words)`)
 	agYouAre    = lazyre.New(`(?i)^(you)` + agSpace + `are`)
 	agInside    = lazyre.New(`(?i)inside`)
+	agHelps     = lazyre.New(`(?i)helps`)
 )
 
 // agSpace is a run of white space as Google's check reads it: on a real
@@ -502,11 +522,23 @@ func codeAssistID(model, effort, agent string) string {
 // in force is looked up against the very id the envelope is addressed to:
 // asking twice reads the vendor's catalogue twice over for one answer.
 func codeAssistBody(p provider.Provider, r *Request, model string, wires map[string]string) []byte {
+	return codeAssistBodyIn(p, r, model, wires, "")
+}
+
+// codeAssistBodyIn is codeAssistBody for a request from an agent of
+// User-Agent ua (agentUA: the agent's own, through another magpie too),
+// which the AGY prompt profile reads DeepSeek Harness by (agyCompatFor).
+func codeAssistBodyIn(p provider.Provider, r *Request, model string, wires map[string]string, ua string) []byte {
 	// a model the user lists by an id of theirs (SetModelID) is the
 	// account's own model: its envelope, the variant the effort picks and
 	// a name for the whole provider are of the vendor's id
 	model = p.OwnModelID(model)
 	sent := codeAssistID(model, r.Effort, p.Account.Agent)
+	if agyCompatFor(p, r) {
+		// the client's prompt as Antigravity's own client says it, before
+		// the lines Google turns away are reworded below as ever
+		r = agyCompat(r, agycompat.DSHUserAgent(ua))
+	}
 	if p.Account.Agent == "antigravity" && !p.PromptAsWritten {
 		// the lines Google turns away, and the paragraphs
 		// it answers badly, reworded; the request the

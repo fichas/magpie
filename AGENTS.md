@@ -96,6 +96,14 @@ Two cases decide it:
   anyone new. The built-in route's tests serve it again through
   `provider.AntigravityBuiltinForTest()` until its code is taken out
   (#6723).
+- **This fork can serve the built-in Antigravity again**, opt-in on one
+  computer (`magpie accounts antigravity-builtin on`,
+  `settings.AntigravityBuiltin`), with an AGY prompt profile
+  (`prompt=agy`, `internal/agycompat`) and its single-send and
+  `Idempotency-Key` guarantees (`internal/agyjournal`, `agyFenced` in
+  serve's loop): see
+  [docs/antigravity-native.md](docs/antigravity-native.md). Don't take the
+  code it needs out.
 
 The plugin does everything: sign-in, refresh, models, requests, usage and
 errors. It runs in the plugin host (`internal/plugin`). The built-ins'

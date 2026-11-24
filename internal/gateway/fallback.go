@@ -33,6 +33,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/yetone/magpie/internal/agyjournal"
 	"github.com/yetone/magpie/internal/lazyre"
 	"github.com/yetone/magpie/internal/plugin"
 	"github.com/yetone/magpie/internal/provider"
@@ -3968,7 +3969,9 @@ func (h *holdWriter) watch() func() {
 					continue
 				}
 				h.mu.Lock()
-				if !h.started() {
+				// an AGY send that went out is waited for, never cut
+				// for another to be asked (agy_dispatch.go)
+				if !h.started() && (h.ctx == nil || !agyjournal.Fenced(h.ctx)) {
 					h.slow = true
 				}
 				h.mu.Unlock()

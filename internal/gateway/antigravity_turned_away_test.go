@@ -12,6 +12,10 @@ func TestAntigravityTurnsAwayClaudeCodesSystemPrompt(t *testing.T) {
 		"x-anthropic-billing-header: cc_version=2.1.288.e3f; cc_entrypoint=sdk-cli;\nYou are Claude Code, Anthropic's official CLI for Claude.",
 		"You are a Claude agent, built on Anthropic's Claude Agent SDK.\n\nYou are an interactive agent …",
 		"Some instructions first.\nYou are a Claude agent, built on Anthropic's Claude Agent SDK.",
+		// Claude Code's identity line alone, and its interactive persona
+		// line, since 11-15 / 11-16 (3 of 3 each on 11-24)
+		"You are Claude Code, Anthropic's official CLI for Claude.",
+		"You are an interactive agent that helps users with software engineering tasks.",
 	} {
 		if !antigravityTurnsAway(system) {
 			t.Errorf("%q isn't taken for what Antigravity turns away", system)
@@ -22,7 +26,8 @@ func TestAntigravityTurnsAwayClaudeCodesSystemPrompt(t *testing.T) {
 	for _, system := range []string{
 		"",
 		"You are a helpful assistant.",
-		"You are Claude Code, Anthropic's official CLI for Claude.",
+		"You're Claude Code, Anthropic's official CLI for Claude.",
+		"You are an interactive agent that assists users with software engineering tasks.",
 		"You are Codex, based on GPT-5.",
 	} {
 		if antigravityTurnsAway(system) {
