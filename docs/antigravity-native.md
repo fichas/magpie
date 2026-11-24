@@ -117,7 +117,9 @@ magpie processes never both win a key):
   upstream, or that no AGY attempt served, releases its key.
 
 There is no takeover of a running request, no partial or error replay, and
-no promise past retention.
+no promise past retention. The reservation is taken before the route is
+known, so while a keyed request runs a repeat of it is 409 whichever route
+serves it; one that no AGY attempt served releases its key when it ends.
 
 ## Not ported
 

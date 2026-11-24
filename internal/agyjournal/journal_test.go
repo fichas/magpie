@@ -279,7 +279,37 @@ func TestGuard(t *testing.T) {
 	if _, err := Begin(ctx, false); err != ErrNoResend {
 		t.Fatalf("after an AGY send: %v", err)
 	}
+	// a round after a completed one is a generation of its own: one more
+	// send, and fenced again once it goes
+	Advance(ctx)
+	c, err = Begin(ctx, true)
+	if err != nil {
+		t.Fatalf("after Advance: %v", err)
+	}
+	httptrace.ContextClientTrace(c).WroteHeaders()
+	if _, err := Begin(ctx, true); err != ErrNoResend {
+		t.Fatalf("the round's send didn't fence again: %v", err)
+	}
 	if c, err := Begin(context.Background(), true); err != nil || c == nil {
 		t.Fatal("no guard changed something")
+	}
+}
+
+// The shared journal opens once per path, prunes what expired, and lets
+// go of its file when closed.
+func TestShared(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "agy-journal.db")
+	a, err := Shared(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(CloseShared)
+	if b, _ := Shared(path); b != a {
+		t.Fatal("opened twice for one path")
+	}
+	CloseShared()
+	b, err := Shared(path)
+	if err != nil || b == a {
+		t.Fatalf("not opened again after close: %v", err)
 	}
 }

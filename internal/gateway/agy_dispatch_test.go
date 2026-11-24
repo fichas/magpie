@@ -135,7 +135,10 @@ func keyedSetup(t *testing.T, say func(w http.ResponseWriter, r *http.Request)) 
 	path := filepath.Join(t.TempDir(), "agy-journal.db")
 	old := agyJournalPath
 	agyJournalPath = func() string { return path }
-	t.Cleanup(func() { agyJournalPath = old })
+	t.Cleanup(func() {
+		agyJournalPath = old
+		agyjournal.CloseShared()
+	})
 	return s, &n
 }
 

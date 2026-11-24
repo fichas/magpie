@@ -137,6 +137,20 @@ func Shared(path string) (*SQLite, error) {
 		shared.Close()
 	}
 	shared, sharedPath = s, path
-	go s.Prune(context.Background())
+	// what expired while magpie was away goes now: one statement, on open
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	s.Prune(ctx)
+	cancel()
 	return s, nil
+}
+
+// CloseShared lets go of the shared journal, for a test whose folder goes
+// when it ends (an open file can't be removed on Windows).
+func CloseShared() {
+	sharedMu.Lock()
+	defer sharedMu.Unlock()
+	if shared != nil {
+		shared.Close()
+		shared, sharedPath = nil, ""
+	}
 }
