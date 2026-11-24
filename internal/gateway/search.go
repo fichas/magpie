@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/yetone/magpie/internal/agyjournal"
 	"github.com/yetone/magpie/internal/catalog"
 	"github.com/yetone/magpie/internal/gwtool"
 	"github.com/yetone/magpie/internal/netproxy"
@@ -1509,6 +1510,9 @@ func (s *Server) searchRounds(ctx context.Context, q *Request, tool string, in <
 		before, this = before.plus(this, false), Usage{}
 		var status int
 		var msg string
+		// the round before was answered whole: this one, with its search
+		// results, is a generation of its own, sent once as well
+		agyjournal.Advance(ctx)
 		if in, status, msg = ask(ctx, q); in == nil {
 			send(Event{Kind: KError, Text: fmt.Sprintf("%s (%d)", msg, status)})
 			return

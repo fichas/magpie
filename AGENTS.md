@@ -99,7 +99,9 @@ Two cases decide it:
 - **This fork can serve the built-in Antigravity again**, opt-in on one
   computer (`magpie accounts antigravity-builtin on`,
   `settings.AntigravityBuiltin`), with an AGY prompt profile
-  (`prompt=agy`, `internal/agycompat`): see
+  (`prompt=agy`, `internal/agycompat`) and its single-send and
+  `Idempotency-Key` guarantees (`internal/agyjournal`, `agyFenced` in
+  serve's loop): see
   [docs/antigravity-native.md](docs/antigravity-native.md). Don't take the
   code it needs out.
 

@@ -28,6 +28,7 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/yetone/magpie/internal/access"
+	"github.com/yetone/magpie/internal/agyjournal"
 	"github.com/yetone/magpie/internal/awake"
 	"github.com/yetone/magpie/internal/catalog"
 	"github.com/yetone/magpie/internal/codexrelay"
@@ -2622,6 +2623,11 @@ func (s *Server) handle(from provider.Protocol) http.HandlerFunc {
 				}
 			}
 		}
+		if from == provider.Anthropic {
+			// under the AGY profile's guarantees (agy_dispatch.go)
+			s.serveMessages(w, r, body)
+			return
+		}
 		s.serveAgent(w, r, from, body)
 	}
 }
@@ -4811,6 +4817,13 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 			break
 		}
 		hw.settle()
+		// an AGY send went out for this request (agy_dispatch.go): what
+		// this try got is the answer, told as the last try's is. Nobody
+		// else is asked, nor this one again, by any branch below
+		agyFenced := agyjournal.Fenced(r.Context())
+		if agyFenced {
+			cands, last = cands[:i+1], true
+		}
 		if hw.handedOver {
 			// its refusal came after its reasoning went to the agent: the
 			// next try's stream follows it as the same reply
@@ -4956,7 +4969,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 			}
 			break
 		}
-		if hw.slow {
+		if hw.slow && !agyFenced {
 			// no first content in the group's FirstToken, and nothing of
 			// it sent: the next member is asked, and this one doesn't
 			// rest the first time, a long prompt being slow to start
@@ -4990,7 +5003,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 			skipped = append(skipped, c.label()+": "+call.Error)
 			continue
 		}
-		if hw.relooped {
+		if !agyFenced && hw.relooped {
 			// its reasoning ran into a loop before it said a word (#1359),
 			// and it was let go: asked again, once, of the same one, as a
 			// translated reply is in place; asked again, it mostly doesn't
@@ -5031,7 +5044,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 				last = false
 			}
 		}
-		if autoPicks(c) && repicked < 2 && !hw.passing && hw.code() == http.StatusBadRequest &&
+		if !agyFenced && autoPicks(c) && repicked < 2 && !hw.passing && hw.code() == http.StatusBadRequest &&
 			(provider.CopilotRefusal(hw.errBody()) || wrongEndpoint(hw.code(), hw.errBody())) {
 			// Copilot refused the model its Auto picked, and Auto has
 			// picked another, which is asked for on the APIs it is
@@ -5041,7 +5054,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 			i--
 			continue
 		}
-		if resealed == 0 && from != provider.Responses && !hw.passing && hw.code() >= 400 && foreignReasoning.Match(hw.errBody()) {
+		if !agyFenced && resealed == 0 && from != provider.Responses && !hw.passing && hw.code() >= 400 && foreignReasoning.Match(hw.errBody()) {
 			// the same refusal of a client of another API: the sealed
 			// reasoning its calls' ids carry (reasoning_carry.go), which
 			// a Responses upstream other than the one that sealed it
@@ -5056,7 +5069,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 				continue
 			}
 		}
-		if resealed < 2 && from == provider.Responses && !hw.passing && hw.code() >= 400 && foreignReasoning.Match(hw.errBody()) {
+		if !agyFenced && resealed < 2 && from == provider.Responses && !hw.passing && hw.code() >= 400 && foreignReasoning.Match(hw.errBody()) {
 			// the conversation moved here from another account or vendor,
 			// whose seals this one can't read: asked again without them
 			// (its reasoning, and each message's, call's and web search's
@@ -5089,7 +5102,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 				continue
 			}
 		}
-		if updated && !outgrew && !hw.passing && hw.code() == 400 {
+		if !agyFenced && updated && !outgrew && !hw.passing && hw.code() == 400 {
 			// the upstream turned the update items away: asked again as
 			// the agent sent it, and if that goes, never sent them again
 			plainFor = c.who() + "|" + c.model
@@ -5101,7 +5114,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 		if plainFor == c.who()+"|"+c.model && call.Status > 0 && call.Status < 400 {
 			effortUpdatesRefused(c.who(), c.model)
 		}
-		if !hw.passing && !s.sightRefused(c.p.ID, c.model) && imageRefused(hw.code(), hw.errBody()) && hasImage(from, attemptBody) {
+		if !agyFenced && !hw.passing && !s.sightRefused(c.p.ID, c.model) && imageRefused(hw.code(), hw.errBody()) && hasImage(from, attemptBody) {
 			// the model turned the image away, its list or models.dev
 			// having said it sees: it is text-only from now on (blindTo),
 			// and with a model to describe images it is asked again with
@@ -5128,7 +5141,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 				}
 			}
 		}
-		if !floored && !hw.passing && hw.code() == 400 {
+		if !agyFenced && !floored && !hw.passing && hw.code() == 400 {
 			// asked for fewer tokens than this provider answers with (#64)
 			if b, ok := withTokenFloor(body, tokenFloor(hw.errBody())); ok {
 				floored, body = true, b
@@ -5138,7 +5151,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 				continue
 			}
 		}
-		if voidRoomed && !hw.passing && outputFieldRefused(hw.code(), hw.errBody()) {
+		if !agyFenced && voidRoomed && !hw.passing && outputFieldRefused(hw.code(), hw.errBody()) {
 			// the room asked for after a void (noteVoid) turned away as
 			// more than the model takes: asked again naming none, as the
 			// client did, and so from then on
@@ -5148,7 +5161,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 			i--
 			continue
 		}
-		if voidFor != c.who()+"|"+c.model && roomless && !voidRoomed && !hw.passing && hw.failed() && bodyHas(hw.errBody(), cutVoidWords) && s.voidRoomOf(c.p.ID, c.model) > 0 {
+		if !agyFenced && voidFor != c.who()+"|"+c.model && roomless && !voidRoomed && !hw.passing && hw.failed() && bodyHas(hw.errBody(), cutVoidWords) && s.voidRoomOf(c.p.ID, c.model) > 0 {
 			// the request named no reply limit and the API's own default
 			// cut the reply having said nothing (noteVoid): the same one
 			// is asked again, at once, for the room its model has —
@@ -5159,7 +5172,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 			i--
 			continue
 		}
-		if roomFor != c.who()+"|"+c.model && !hw.passing && (hw.code() == 400 || hw.code() == 422) {
+		if !agyFenced && roomFor != c.who()+"|"+c.model && !hw.passing && (hw.code() == 400 || hw.code() == 422) {
 			// the window holds the prompt but not the reply asked for with
 			// it: DeepSeek counts max_tokens in its 1M window, and a client
 			// asking its full 384K for a 700K conversation (max_completion_
@@ -5187,7 +5200,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 				// refusal be: nobody else is, and the agent has it now
 				cands = cands[:i+1]
 				last = true
-			} else if noRetell {
+			} else if noRetell && !agyFenced {
 				// another Claude subscription account is a new Claude Code
 				// told the whole conversation, a cache written again on that
 				// account, for a refusal about the request's content that it
@@ -5352,7 +5365,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 				continue
 			}
 		}
-		if !hw.passing && badRequest(hw.code()) && hw.mayAskAgain() && zhipuImageRefusal.Match(wordsOf(hw.errBody())) {
+		if !agyFenced && !hw.passing && badRequest(hw.code()) && hw.mayAskAgain() && zhipuImageRefusal.Match(wordsOf(hw.errBody())) {
 			if b := webpAsJPEG(from, attemptBody); !bytes.Equal(b, attemptBody) {
 				// GLM can't read a webp picture (Claude Desktop's browser
 				// screenshot, #4732), and the session's history carries it,
@@ -5446,7 +5459,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 		// for the same room, so none rests, none is asked next, nor this
 		// one again after a moment. Another provider left is asked
 		noRoom := hw.failed() && claudeNoRoom(hw.code(), hw.errBody())
-		if protected || zdr || noRoom {
+		if !agyFenced && (protected || zdr || noRoom) {
 			if other == nil {
 				other = &Try{Status: call.Status, Error: call.Error, errType: call.Usage.ErrType}
 			}
@@ -5469,7 +5482,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 		}
 		// nor is it asked again after a moment
 		protected = protected || zdr || noRoom
-		if !hw.passing && !hw.refused && hw.failed() && regionRefused(hw.code(), wordsOf(hw.errBody())) {
+		if !agyFenced && !hw.passing && !hw.refused && hw.failed() && regionRefused(hw.code(), wordsOf(hw.errBody())) {
 			// the vendor refused the model for where the request came from
 			// (regionWords). Once, it may be the edge a kept-alive
 			// connection reached: the next account, or this one again, is
@@ -5489,7 +5502,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 				protected = true
 			}
 		}
-		if !hw.passing && !hw.refused && hw.failed() && riskRefused(c, hw.code(), hw.header, hw.errBody()) {
+		if !agyFenced && !hw.passing && !hw.refused && hw.failed() && riskRefused(c, hw.code(), hw.header, hw.errBody()) {
 			// the vendor's risk control restricted the account (WorkBuddy's
 			// 403 11140, ZCode's 3012): its risk control reads the same
 			// request on whichever account it comes from, so none of the
@@ -5636,7 +5649,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 				continue
 			}
 		}
-		if hw.failed() && !hw.passing && !hw.turnedAway && !hw.refused && !creditsAsked[c.rest] && creditsAgain(c, hw.code(), hw.errBody()) {
+		if !agyFenced && hw.failed() && !hw.passing && !hw.turnedAway && !hw.refused && !creditsAsked[c.rest] && creditsAgain(c, hw.code(), hw.errBody()) {
 			// a Codex account that holds credits, refused as out of its
 			// allowance: ChatGPT may turn away the turn that uses the
 			// window up before it spends the credits, and answers the
@@ -5654,7 +5667,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 		if hw.failed() && !hw.passing && len(unlisted) > 0 && unservedTry(c, hw.code(), hw.errBody()) {
 			unservedBy[c.p.ID+"/"+c.model] = true
 		}
-		if key := c.p.ID + "/" + c.model; unservedBy[key] && hw.failed() && !hw.passing && !hw.turnedAway && !hw.refused && !outgrew &&
+		if key := c.p.ID + "/" + c.model; !agyFenced && unservedBy[key] && hw.failed() && !hw.passing && !hw.turnedAway && !hw.refused && !outgrew &&
 			!slices.ContainsFunc(cands[i+1:], func(x candidate) bool { return x.p.ID+"/"+x.model == key }) {
 			// every account of the subscription that lists the model has
 			// been asked, and one refused it as a model it doesn't serve:
@@ -5779,7 +5792,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 		// (spentAfter) and the agent is told theirs
 		lastSpent := last && isGroup && len(busyNow) > 0 && !hw.passing && hw.failed() && !busyFor(c, hw.code(), hw.errBody()) &&
 			slices.Contains([]string{failQuota, failCredit}, failure(hw.code(), hw.errBody())) && !spentAfter([]candidate{c})
-		if _, same := passingFor(c, hw.code(), hw.header, hw.errBody(), again); last && patience > 0 && !protected && !sameRefusal && !hw.turnedAway && !hw.refused && hw.failed() && (busyFor(c, hw.code(), hw.errBody()) && (!routedThere(hw.header) || len(busyNow) > 0) || lastSpent) &&
+		if _, same := passingFor(c, hw.code(), hw.header, hw.errBody(), again); !agyFenced && last && patience > 0 && !protected && !sameRefusal && !hw.turnedAway && !hw.refused && hw.failed() && (busyFor(c, hw.code(), hw.errBody()) && (!routedThere(hw.header) || len(busyNow) > 0) || lastSpent) &&
 			(isGroup || !codexReset(hw.code(), hw.errBody())) &&
 			(len(busyNow) > 0 || waitsOf(c.patience, patienceFallback) > 0 && !same) {
 			// every member has failed, each in a way that passes — busy,
@@ -5831,7 +5844,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 				break
 			}
 		}
-		if wait, ok := passingFor(c, hw.code(), hw.header, hw.errBody(), again); ok && !protected && !sameRefusal && !hw.turnedAway && hw.failed() && waitFrom.IsZero() && !kept.tooQuiet(wait) && !kept.outlives(wait) {
+		if wait, ok := passingFor(c, hw.code(), hw.header, hw.errBody(), again); !agyFenced && ok && !protected && !sameRefusal && !hw.turnedAway && hw.failed() && waitFrom.IsZero() && !kept.tooQuiet(wait) && !kept.outlives(wait) {
 			// nobody else is left: the same one again, after a moment (not
 			// what Antigravity turned away: it turns it away again; nor
 			// once the group's patience is spent)
@@ -5849,7 +5862,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 			break
 		}
 		// (not for one account pinned: the others weren't asked)
-		if !autoReset && pin == "" && last && other == nil && hw.failed() && !hw.passing && !hw.turnedAway && failure(hw.code(), hw.errBody()) == failQuota {
+		if !agyFenced && !autoReset && pin == "" && last && other == nil && hw.failed() && !hw.passing && !hw.turnedAway && failure(hw.code(), hw.errBody()) == failQuota {
 			// everyone is out of their allowance: a Codex or Claude account
 			// the user lets spend its resets by itself, its week used up,
 			// spends one and is asked again
@@ -5869,7 +5882,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 		// the body is read for why last, once the try is known to have
 		// failed: a reply held whole that passed is the whole reply, and
 		// failure over a 24MB one held its client past its timeout
-		if last && len(small) > 0 && pin == "" && other == nil && hw.failed() && !hw.passing && !hw.turnedAway && !hw.refused && !outgrew &&
+		if !agyFenced && last && len(small) > 0 && pin == "" && other == nil && hw.failed() && !hw.passing && !hw.turnedAway && !hw.refused && !outgrew &&
 			(try.Fail == failQuota || try.Fail == failCredit || slices.Contains([]string{failQuota, failCredit}, failure(hw.code(), hw.errBody()))) {
 			// every one with room is out of its allowance: those roomy
 			// left out as too small for the request are asked after all,
@@ -6549,6 +6562,11 @@ func (s *Server) forward(ctx context.Context, p provider.Provider, to provider.P
 		ctx = context.WithValue(ctx, dsSentKey{}, &dsSent{})
 	}
 	res, err = s.forwardOnce(ctx, p, to, path, body, in)
+	if agyjournal.Fenced(ctx) {
+		// an AGY send went out: what it got is the answer, never asked
+		// again in another shape (agy_dispatch.go)
+		return res, err
+	}
 	if err != nil {
 		// a Remote magpie whose computer came back at another address
 		// is asked there (provider's remote_moved.go)
@@ -6644,6 +6662,10 @@ func (s *Server) forward(ctx context.Context, p provider.Provider, to provider.P
 
 // forwardOnce is one request to the provider, as forward makes it.
 func (s *Server) forwardOnce(ctx context.Context, p provider.Provider, to provider.Protocol, path string, body []byte, in http.Header) (*http.Response, error) {
+	if agyjournal.Fenced(ctx) {
+		// an AGY send went out for this request: nothing goes again
+		return nil, agyjournal.ErrNoResend
+	}
 	reqCtx := ctx
 	ctx = s.metered(p.Via(ctx), p, "")
 	body = deepseekToolPatterns(p, to, body)
@@ -6975,7 +6997,16 @@ func (s *Server) forwardOnce(ctx context.Context, p provider.Provider, to provid
 	sentUp(ctx, sent, len(body))
 	// a request asked again in the same ask (RetryOneAuth and the others
 	// below) goes on the wire again too, as long as it went
+	// an AGY attempt goes once (agy_dispatch.go): Begin refuses a send
+	// once one went for the request, and marks this one as gone as soon as
+	// its headers are written
+	single := agyjournal.IsAttempt(reqCtx)
 	again := func(r *http.Request) (*http.Response, error) {
+		gctx, gerr := agyjournal.Begin(r.Context(), single)
+		if gerr != nil {
+			return nil, gerr
+		}
+		r = r.WithContext(gctx)
 		n := sent
 		if r.ContentLength > 0 {
 			n = int(r.ContentLength)
@@ -6984,7 +7015,16 @@ func (s *Server) forwardOnce(ctx context.Context, p provider.Provider, to provid
 		res, err := p.Do(s.client, r)
 		return gotDown(ctx, res), err
 	}
+	gctx, gerr := agyjournal.Begin(req.Context(), single)
+	if gerr != nil {
+		return nil, gerr
+	}
+	req = req.WithContext(gctx)
 	res, err := p.Do(s.client, req)
+	if single && err == nil {
+		// answered, so sent, whatever transport carried it
+		agyjournal.Fence(reqCtx)
+	}
 	// what comes back is counted as it is read, as what went is (#4456)
 	res = gotDown(ctx, res)
 	if dict != nil {
@@ -9101,7 +9141,7 @@ func (s *Server) forwardTranslated(ctx context.Context, p provider.Provider, to 
 			// known: on Antigravity that is the variant the effort picked,
 			// not the model magpie knows. It is built from what goes
 			// (sent), the billing line left out as for buildFor
-			body = codeAssistBodyIn(p, sent, model, wires, in)
+			body = codeAssistBodyIn(p, sent, model, wires, agentUA(ctx, in))
 		} else if wire != model {
 			// the vendor's own name for the model goes in the model field
 			// and nowhere else: everything above shaped the request from
@@ -9123,7 +9163,16 @@ func (s *Server) forwardTranslated(ctx context.Context, p provider.Provider, to 
 			// thinkingConfig can, and loses minimal and xhigh
 			fctx = provider.WithEffort(ctx, req.Effort)
 		}
+		if to == provider.CodeAssist && p.Account != nil && agyCompatFor(p, sent) {
+			// an attempt on an account with the AGY profile on: sent once
+			fctx = agyjournal.Attempt(fctx)
+		}
 		res, err := s.forward(fctx, p, to, path, p.Prepare(body), in)
+		if agyjournal.Fenced(ctx) {
+			// the AGY send's answer is the answer: none of the re-asks
+			// below goes (agy_dispatch.go)
+			return res, to, err
+		}
 		if err != nil || res.StatusCode < 400 {
 			if dropped && err == nil {
 				// it was the key: not sent there again
@@ -10157,7 +10206,11 @@ func (s *Server) translate(w http.ResponseWriter, r *http.Request, p provider.Pr
 		// stream rather than as a 400 (forwardTranslated asks again for
 		// that one): remembered, and asked once more, thinking
 		s.markThinkingNeeded(p, actual, model, provider.UpstreamNameIn(wiresOf(r.Context()), p.ID, model))
-		return s.translate(w, r, p, from, to, model, body, u)
+		if !agyjournal.Fenced(r.Context()) {
+			// an AGY send is never asked again: its refusal is the
+			// answer, remembered for the next request
+			return s.translate(w, r, p, from, to, model, body, u)
+		}
 	}
 	if col.err != "" && (!saidAnything(col.res.Parts) || col.errSaid != nil) {
 		said := col.err

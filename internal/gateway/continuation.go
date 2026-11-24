@@ -30,6 +30,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/yetone/magpie/internal/agyjournal"
 	"github.com/yetone/magpie/internal/provider"
 )
 
@@ -523,7 +524,9 @@ func (s *Server) streamTranslated(w http.ResponseWriter, r *http.Request, p prov
 			// only reasoning nobody acts on: a text or a call the agent
 			// has would be said twice, and a continuation's prefill would
 			// be asked to go on with the loop
-			if !t.reasoning || spoke || cont.resume || reasks >= loopReasks || r.Context().Err() != nil || p.PassesErrors() {
+			if !t.reasoning || spoke || cont.resume || reasks >= loopReasks || r.Context().Err() != nil || p.PassesErrors() ||
+				agyjournal.Fenced(r.Context()) {
+				// an AGY send is never asked again (agy_dispatch.go)
 				return false
 			}
 			reasks++
@@ -781,7 +784,7 @@ func (s *Server) streamTranslated(w http.ResponseWriter, r *http.Request, p prov
 				held()
 			}
 			if (empty || counts && uncounted(this) || voids && stop == "") && !said && answersNothing(stop) {
-				if empties < emptyRetries(w, r.Context()) && r.Context().Err() == nil && !p.PassesErrors() {
+				if empties < emptyRetries(w, r.Context()) && r.Context().Err() == nil && !p.PassesErrors() && !agyjournal.Fenced(r.Context()) {
 					// asked again here first, for the agent to have the
 					// answer rather than the error: Gemini on a long
 					// conversation now and then ends with only its
@@ -810,7 +813,7 @@ func (s *Server) streamTranslated(w http.ResponseWriter, r *http.Request, p prov
 				// nowhere: its budget is spent, and a second ask at the
 				// same max_tokens would mostly spend it twice over before
 				// the error (#2972, its review)
-				if request.MaxTokens <= 0 && s.noteVoid(p, model, this.Output) && r.Context().Err() == nil {
+				if request.MaxTokens <= 0 && s.noteVoid(p, model, this.Output) && r.Context().Err() == nil && !agyjournal.Fenced(r.Context()) {
 					// the request named no limit, and the API's own
 					// default cut it: asked again here, once, for the
 					// room the model has (voidRoom), the reasoning the

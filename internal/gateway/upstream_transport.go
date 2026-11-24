@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/yetone/magpie/internal/agyjournal"
 	"github.com/yetone/magpie/internal/netproxy"
 )
 
@@ -135,7 +136,9 @@ func (t drawsApart) RoundTrip(r *http.Request) (*http.Response, error) {
 		return t.uploads.RoundTrip(r)
 	}
 	res, err := t.any.RoundTrip(r)
-	if err == nil || !lostPing(err) || r.GetBody == nil || r.Context().Err() != nil {
+	// an AGY single send is not uploaded a second time: its body may
+	// have reached the vendor before the ping was lost
+	if err == nil || !lostPing(err) || r.GetBody == nil || r.Context().Err() != nil || agyjournal.Single(r.Context()) {
 		return res, err
 	}
 	body, gerr := r.GetBody()
@@ -181,6 +184,16 @@ type replayable struct{ http.RoundTripper }
 // the error says why (errClosedUnsent), and the routing rests nobody for
 // it (failProxy).
 func (t replayable) RoundTrip(req *http.Request) (*http.Response, error) {
+	if agyjournal.Single(req.Context()) {
+		// an AGY single send: unmarked, so Go never replays it on a
+		// reused connection, and never tried again here, since "unsent"
+		// doesn't hold over TLS (closedBeforeSent)
+		if _, ok := req.Header["X-Idempotency-Key"]; ok {
+			req = req.Clone(req.Context())
+			delete(req.Header, "X-Idempotency-Key")
+		}
+		return t.RoundTripper.RoundTrip(req)
+	}
 	_, marked := req.Header["Idempotency-Key"]
 	if _, ok := req.Header["X-Idempotency-Key"]; ok {
 		marked = true

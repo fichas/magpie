@@ -52,7 +52,9 @@ const providerUsage = `usage:
                                           prompt=default, the default, rewords the lines Google answers with a
                                           false 429 (Codex's, Claude Code's, Hermes' old persona, oh-my-pi's)
                                           prompt=agy sends an Anthropic client's prompt as the AGY gateway profile
-                                          does: Antigravity's identity, client product notes left out (built-in only)
+                                          does: Antigravity's identity, client product notes left out (built-in only),
+                                          sent once (no re-ask or fallback after it may have reached Google), and
+                                          an Idempotency-Key replays the completed reply
                                           additional-tools=on sends a tool Claude Code's tool search loads to its
                                           Responses API where it was loaded (an additional_tools item, which
                                           keeps the cache); OpenAI's API and a ChatGPT (Codex) account do so by

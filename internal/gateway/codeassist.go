@@ -503,13 +503,13 @@ func codeAssistID(model, effort, agent string) string {
 // in force is looked up against the very id the envelope is addressed to:
 // asking twice reads the vendor's catalogue twice over for one answer.
 func codeAssistBody(p provider.Provider, r *Request, model string, wires map[string]string) []byte {
-	return codeAssistBodyIn(p, r, model, wires, nil)
+	return codeAssistBodyIn(p, r, model, wires, "")
 }
 
-// codeAssistBodyIn is codeAssistBody for a request that came in with the
-// headers in, which the AGY prompt profile reads DeepSeek Harness's
-// User-Agent from (agyCompatFor).
-func codeAssistBodyIn(p provider.Provider, r *Request, model string, wires map[string]string, in http.Header) []byte {
+// codeAssistBodyIn is codeAssistBody for a request from an agent of
+// User-Agent ua (agentUA: the agent's own, through another magpie too),
+// which the AGY prompt profile reads DeepSeek Harness by (agyCompatFor).
+func codeAssistBodyIn(p provider.Provider, r *Request, model string, wires map[string]string, ua string) []byte {
 	// a model the user lists by an id of theirs (SetModelID) is the
 	// account's own model: its envelope, the variant the effort picks and
 	// a name for the whole provider are of the vendor's id
@@ -518,7 +518,7 @@ func codeAssistBodyIn(p provider.Provider, r *Request, model string, wires map[s
 	if agyCompatFor(p, r) {
 		// the client's prompt as Antigravity's own client says it, before
 		// the lines Google turns away are reworded below as ever
-		r = agyCompat(r, agycompat.DSHUserAgent(in.Get("User-Agent")))
+		r = agyCompat(r, agycompat.DSHUserAgent(ua))
 	}
 	if p.Account.Agent == "antigravity" && !p.PromptAsWritten {
 		// the lines Google turns away, and the paragraphs

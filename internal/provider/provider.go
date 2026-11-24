@@ -395,6 +395,10 @@ type Provider struct {
 	// names, schemas and the conversation stay as written. Set with `magpie
 	// provider set antigravity prompt=agy`; prompt=default turns it back.
 	// Other APIs' clients (Chat, Responses, Gemini) go as by default.
+	// Such a request is also sent once (gateway's agy_dispatch.go): once
+	// it may have reached Google nothing asks again, of this account or
+	// another, and its Idempotency-Key, while the built-in is on, replays
+	// the completed reply.
 	AgyCompat bool `json:"agyCompat,omitempty"`
 
 	// AdditionalTools says the provider's Responses API takes an

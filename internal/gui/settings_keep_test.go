@@ -209,6 +209,7 @@ func TestSettingsSaveKeepsWhatItDoesNotSend(t *testing.T) {
 		SearchAll:            true,
 		SearchCount:          9,
 		NoAccountDiscovery:   true,
+		AntigravityBuiltin:   true,
 		AgentTelemetryOff:    true,
 		RedactModel:          true,
 		RedactModelName:      "astrlink-guard",

@@ -5,6 +5,8 @@ import (
 	"net"
 	"net/http"
 	"strings"
+
+	"github.com/yetone/magpie/internal/agyjournal"
 )
 
 // A request that carries a vendor's credential is followed through a
@@ -77,6 +79,11 @@ func Keyed(c *http.Client) *http.Client {
 	k := *c
 	own := c.CheckRedirect
 	k.CheckRedirect = func(next *http.Request, via []*http.Request) error {
+		if agyjournal.Single(next.Context()) {
+			// an AGY single send goes once: a 307 or 308 would send
+			// its body again, so the redirect is the reply
+			return http.ErrUseLastResponse
+		}
 		if own != nil {
 			if err := own(next, via); err != nil {
 				return err

@@ -13,8 +13,9 @@
 package agycompat
 
 import (
-	"regexp"
 	"strings"
+
+	"github.com/yetone/magpie/internal/lazyre"
 )
 
 // Identity is Antigravity's own identity line, which a recognized client's
@@ -24,28 +25,28 @@ const Identity = "You are Antigravity, a powerful agentic AI assistant designed 
 const dshLine = "You are an AI agent powered by DeepSeek Harness."
 
 var (
-	billing      = regexp.MustCompile(`(?i)^x\s*[-_]\s*(?:anthropic|antigravity|anti\s+gravity)\s*[-_]\s*billing\s*[-_]\s*header\s*:`)
-	persona      = regexp.MustCompile(`(?i)^you(?:\s+are|'re)\s+`)
-	code         = regexp.MustCompile(`(?i)\b(?:claude|antigravity|anti\s+gravity)\s+code\b`)
-	agent        = regexp.MustCompile(`(?i)\b(?:claude|antigravity|anti\s+gravity)\s+agent\b`)
-	dshModel     = regexp.MustCompile(`(?i)^you are a coding agent powered by the [a-z0-9][a-z0-9._/-]* model\.$`)
-	dshUA        = regexp.MustCompile(`(?i)^deepseek-harness/[a-z0-9][a-z0-9.+_-]*(?:\s|$)`)
-	brands       = regexp.MustCompile(`(?i)claude|anthropic`)
-	toolBrands   = regexp.MustCompile(`(?i)\b(?:claude|anthropic)\b`)
-	pathToken    = regexp.MustCompile("(?i)(?:^|[(`'\"\\[])\\.(?:claude|anthropic)\\b|\\b(?:claude|anthropic)\\.[a-z0-9]{2,}\\b")
-	space        = regexp.MustCompile(`\s+`)
-	paragraphs   = regexp.MustCompile(`\n\s*\n`)
-	bullet       = regexp.MustCompile(`^\s*[-*]\s+\S`)
-	continuation = regexp.MustCompile(`^\s+\S`)
-	officialWord = regexp.MustCompile(`(?i)\bofficial\b`)
-	cliWord      = regexp.MustCompile(`(?i)\bcli\b`)
-	agentSDK     = regexp.MustCompile(`(?i)\bagent\s+sdk\b`)
-	ideWord      = regexp.MustCompile(`\bide\b`)
-	fastMode     = regexp.MustCompile(`\bfast mode\b`)
-	fastCommand  = regexp.MustCompile(`/fast\b`)
-	modelIDs     = regexp.MustCompile(`\bmodel ids\b`)
-	claudeModels = regexp.MustCompile(`\b(?:opus|sonnet)\b`)
-	agyBrand     = regexp.MustCompile(`\b(?:antigravity|anti gravity)\b`)
+	billing      = lazyre.New(`(?i)^x\s*[-_]\s*(?:anthropic|antigravity|anti\s+gravity)\s*[-_]\s*billing\s*[-_]\s*header\s*:`)
+	persona      = lazyre.New(`(?i)^you(?:\s+are|'re)\s+`)
+	code         = lazyre.New(`(?i)\b(?:claude|antigravity|anti\s+gravity)\s+code\b`)
+	agent        = lazyre.New(`(?i)\b(?:claude|antigravity|anti\s+gravity)\s+agent\b`)
+	dshModel     = lazyre.New(`(?i)^you are a coding agent powered by the [a-z0-9][a-z0-9._/-]* model\.$`)
+	dshUA        = lazyre.New(`(?i)^deepseek-harness/[a-z0-9][a-z0-9.+_-]*(?:\s|$)`)
+	brands       = lazyre.New(`(?i)claude|anthropic`)
+	toolBrands   = lazyre.New(`(?i)\b(?:claude|anthropic)\b`)
+	pathToken    = lazyre.New("(?i)(?:^|[(`'\"\\[])\\.(?:claude|anthropic)\\b|\\b(?:claude|anthropic)\\.[a-z0-9]{2,}\\b")
+	space        = lazyre.New(`\s+`)
+	paragraphs   = lazyre.New(`\n\s*\n`)
+	bullet       = lazyre.New(`^\s*[-*]\s+\S`)
+	continuation = lazyre.New(`^\s+\S`)
+	officialWord = lazyre.New(`(?i)\bofficial\b`)
+	cliWord      = lazyre.New(`(?i)\bcli\b`)
+	agentSDK     = lazyre.New(`(?i)\bagent\s+sdk\b`)
+	ideWord      = lazyre.New(`\bide\b`)
+	fastMode     = lazyre.New(`\bfast mode\b`)
+	fastCommand  = lazyre.New(`/fast\b`)
+	modelIDs     = lazyre.New(`\bmodel ids\b`)
+	claudeModels = lazyre.New(`\b(?:opus|sonnet)\b`)
+	agyBrand     = lazyre.New(`\b(?:antigravity|anti gravity)\b`)
 )
 
 // DSHUserAgent says whether a User-Agent is DeepSeek Harness's: a hint for
