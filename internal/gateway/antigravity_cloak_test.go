@@ -35,6 +35,9 @@ var googleTurnsAway = []string{
 	"you are opencode",
 	"you are a coding agent running in the codex cli",
 	"a coding assistant running inside pi",
+	// a Google AI Pro account on gemini-4-argon, 11-24: 3 of 3 each
+	"you are claude code, anthropic's official cli for claude",
+	"you are an interactive agent that helps users with software engineering tasks",
 }
 
 // piDefaultSystem is pi 1.5.0's default system prompt as it builds it
@@ -140,9 +143,10 @@ func TestAntigravityCloakClaudeCode2316(t *testing.T) {
 	if antigravityCloak(want) != want {
 		t.Fatal("reworded again")
 	}
-	// the Code tab's main identity line goes through as written
+	// the Code tab's main identity line goes as "You're …" since Google
+	// turns Claude Code's line away (11-24, 3 of 3)
 	main := "x-anthropic-billing-header: cc_version=2.1.316.2e4; cc_entrypoint=claude-desktop;\nYou are Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.\nYou are an interactive agent."
-	if got := antigravityCloak(main); got != "You are Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.\nYou are an interactive agent." {
+	if got := antigravityCloak(main); got != "You're Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.\nYou are an interactive agent." {
 		t.Fatalf("the Code tab's prompt went as %q", got)
 	}
 }
@@ -188,13 +192,14 @@ func TestAntigravityCloakRewordsEveryLineItTurnsAway(t *testing.T) {
 			}
 		}
 	}
-	if got := antigravityCloak(claudeCodeSystem); got != "You are Claude Code, Anthropic's official CLI for Claude." {
+	if got := antigravityCloak(claudeCodeSystem); got != "You're Claude Code, Anthropic's official CLI for Claude." {
 		t.Errorf("Claude Code's prompt went as %q", got)
 	}
 	// what Antigravity answers is sent as written, word for word
 	for _, system := range []string{
 		"",
-		"You are Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.",
+		"You're Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.",
+		"You are an interactive agent that assists users with software engineering tasks.",
 		"You are a Claude agent, built on the Claude Agent SDK by Anthropic.",
 		"You are Codex, based on GPT-5. You are running as a coding agent in the Codex CLI on a user's computer.",
 		"You are Codex, an agent based on GPT-6.",

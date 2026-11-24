@@ -121,7 +121,23 @@ var agTurnedAway = []string{
 	"you are opencode",
 	"you are a coding agent running in the codex cli",
 	"a coding assistant running inside pi",
+	// Claude Code's identity line, and its interactive mode's persona line
+	// after it: on a real Google AI Pro account through the built-in on
+	// gemini-4-argon (11-24), each alone was turned away 3 of 3 and each
+	// reworded went through 3 of 3 ("You're Claude Code, …", "… that
+	// assists users …"); "You're an interactive agent …" and "Act as an
+	// interactive agent …" were turned away too (agy-cli's #1151 found the
+	// first since 11-15, AsterGate's refusedphrases the second on 11-16)
+	agClaudeCodeLine,
+	agInteractiveLine,
 }
+
+// agClaudeCodeLine and agInteractiveLine are Claude Code's identity line
+// and its interactive mode's persona line, as agTurnedAway has them.
+const (
+	agClaudeCodeLine  = "you are claude code, anthropic's official cli for claude"
+	agInteractiveLine = "you are an interactive agent that helps users with software engineering tasks"
+)
 
 // agRFCLine is the line oh-my-pi (omp) starts its system prompt with, and
 // its advisor's and live mode's (omp 18.20.0), which Antigravity turns away
@@ -157,6 +173,8 @@ var agSaidAs = []func(string) string{
 	agYoure,
 	agYoure,
 	func(m string) string { return agInside.ReplaceAllString(m, "within") },
+	agYoure,
+	func(m string) string { return agHelps.ReplaceAllString(m, "assists") },
 }
 
 // agYoure is m, which starts "You are", starting "You're" instead.
@@ -170,6 +188,7 @@ var (
 	agRFCSaidAs = lazyre.New(`(?i)(key)(words)`)
 	agYouAre    = lazyre.New(`(?i)^(you)` + agSpace + `are`)
 	agInside    = lazyre.New(`(?i)inside`)
+	agHelps     = lazyre.New(`(?i)helps`)
 )
 
 // agSpace is a run of white space as Google's check reads it: on a real

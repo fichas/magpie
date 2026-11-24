@@ -121,6 +121,28 @@ no promise past retention. The reservation is taken before the route is
 known, so while a keyed request runs a repeat of it is 409 whichever route
 serves it; one that no AGY attempt served releases its key when it ends.
 
+## Live check (2026-11-24)
+
+One Google AI Pro account (`g1-pro-tier`, not Ultra), imported from AsterGate
+with its own egress proxy, through a sandbox `magpie serve` (temporary HOME,
+loopback port), on gemini-4:
+
+| Check | Result |
+| --- | --- |
+| Claude Code 2.1.325-style system prompt, `prompt=default` / `prompt=agy`, gemini-4-argon | both 200, "391" (agy first byte 3.0 s, default 11.9 s) |
+| gemini-4 argon / carbon / hydrogen / neon, agy, stream | all 200, "391"; 7–54 output tokens |
+| Read tool, two rounds (tool_use, then tool_result), agy | 200 `tool_use`, then 200 with the result's text |
+| `Idempotency-Key`, buffered and stream | repeat answered in ~0 s, `X-Magpie-Replayed: true`, bytes identical; another body under the key 409 |
+| Group [Antigravity, local fake member], a prompt Google turns away | default: 429 then the fake member answers; agy: one try, Google's 429 is the answer |
+
+Found on the way, 3 of 3 each on that account: Google turns away Claude Code's
+identity line ("You are Claude Code, Anthropic's official CLI for Claude.")
+and its interactive persona line ("You are an interactive agent that helps
+users with software engineering tasks."); "You're Claude Code, …" and "… that
+assists users …" go through ("You're an interactive agent …" and "Act as an
+interactive agent …" don't). Both are now in `agTurnedAway`, so the default
+profile is answered too. Ban risk was not measured.
+
 ## Not ported
 
 AsterGate's Postgres store and cross-gateway federation semantics: magpie

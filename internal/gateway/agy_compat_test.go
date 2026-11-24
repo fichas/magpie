@@ -119,7 +119,7 @@ func TestAgyCompatSendsClaudeCodeAsAntigravity(t *testing.T) {
 	if code, out := agyMessagesTurn(t, s, "/v1/messages", "claude-cli/2.1.325 (external, cli)"); code != 200 || !strings.Contains(out, "from google") {
 		t.Fatalf("default: %d %s", code, out)
 	}
-	if sys, _ := e.read(); !strings.Contains(sys, "You are Claude Code, Anthropic's official CLI for Claude.") || strings.Contains(sys, agycompat.Identity) {
+	if sys, _ := e.read(); !strings.Contains(sys, "You're Claude Code, Anthropic's official CLI for Claude.") || strings.Contains(sys, agycompat.Identity) {
 		t.Fatalf("by default the prompt went as %q", sys)
 	}
 
@@ -131,7 +131,7 @@ func TestAgyCompatSendsClaudeCodeAsAntigravity(t *testing.T) {
 	if !strings.Contains(sys, agycompat.Identity) {
 		t.Fatalf("no Antigravity identity in %q", sys)
 	}
-	for _, gone := range []string{"You are Claude Code", "billing-header", "cc_version", "desktop app (Mac/Windows)"} {
+	for _, gone := range []string{"Claude Code", "billing-header", "cc_version", "desktop app (Mac/Windows)", "helps users"} {
 		if strings.Contains(sys, gone) {
 			t.Fatalf("%q went: %q", gone, sys)
 		}
@@ -159,7 +159,7 @@ func TestAgyCompatOnlyForMessages(t *testing.T) {
 	if code, out := agyMessagesTurn(t, s, "/v1/chat/completions", ""); code != 200 {
 		t.Fatalf("chat: %d %s", code, out)
 	}
-	if sys, _ := e.read(); strings.Contains(sys, agycompat.Identity) || !strings.Contains(sys, "You are Claude Code") {
+	if sys, _ := e.read(); strings.Contains(sys, agycompat.Identity) || !strings.Contains(sys, "You're Claude Code") {
 		t.Fatalf("a Chat client's prompt went as %q", sys)
 	}
 
