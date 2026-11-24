@@ -2662,6 +2662,11 @@ func providerRoutes(mux *http.ServeMux, w Windows) {
 				if !in.PromptAsWritten && old != nil {
 					in.PromptAsWritten = old.PromptAsWritten
 				}
+				// and its AGY prompt profile, set with `magpie provider
+				// set antigravity prompt=agy`
+				if !in.AgyCompat && old != nil {
+					in.AgyCompat = old.AgyCompat
+				}
 				// and that magpie filled the Gemini URL in once, which the
 				// form doesn't send: a URL cleared in it stays cleared
 				if !in.GeminiFilled && old != nil {

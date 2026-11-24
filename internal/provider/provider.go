@@ -384,6 +384,19 @@ type Provider struct {
 	// prompt=as-written`; prompt=default turns it back.
 	PromptAsWritten bool `json:"promptAsWritten,omitempty"`
 
+	// AgyCompat, on Antigravity's subscription, sends an Anthropic Messages
+	// client's prompt as the AGY gateway profile does (gateway's agycompat,
+	// ported from nwverse/agy-api-gateway as AsterGate's native Antigravity
+	// provider has it): Claude Code's, the Claude Agent SDK's and DeepSeek
+	// Harness's identity lines go as Antigravity's own, the client's
+	// product notes are left out, its other product names in the system
+	// prompt and in tool descriptions say Antigravity, and the lines Google
+	// turns away are reworded after as by default. Paths, file names, tool
+	// names, schemas and the conversation stay as written. Set with `magpie
+	// provider set antigravity prompt=agy`; prompt=default turns it back.
+	// Other APIs' clients (Chat, Responses, Gemini) go as by default.
+	AgyCompat bool `json:"agyCompat,omitempty"`
+
 	// AdditionalTools says the provider's Responses API takes an
 	// additional_tools input item, as OpenAI's does: a deferred tool an
 	// Anthropic client's tool search loaded goes to it in such an item
@@ -1148,7 +1161,7 @@ func accountSettings(a, pk Provider) Provider {
 	a.SwitchOnly, a.RestartApp = pk.SwitchOnly, pk.RestartApp
 	a.Sink, a.NoModels, a.BestInFamily = pk.Sink, pk.NoModels, pk.BestInFamily
 	a.NativeCompaction = pk.NativeCompaction
-	a.PromptAsWritten = pk.PromptAsWritten
+	a.PromptAsWritten, a.AgyCompat = pk.PromptAsWritten, pk.AgyCompat
 	// a deferred tool a tool search loaded goes where it was loaded, set
 	// with `magpie provider set <id> additional-tools=on` (#2660, #4738)
 	a.AdditionalTools, a.AdditionalToolsOff = pk.AdditionalTools, pk.AdditionalToolsOff

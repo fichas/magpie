@@ -51,6 +51,8 @@ const providerUsage = `usage:
                                           prompt=as-written sends Antigravity the system prompt exactly as written;
                                           prompt=default, the default, rewords the lines Google answers with a
                                           false 429 (Codex's, Claude Code's, Hermes' old persona, oh-my-pi's)
+                                          prompt=agy sends an Anthropic client's prompt as the AGY gateway profile
+                                          does: Antigravity's identity, client product notes left out (built-in only)
                                           additional-tools=on sends a tool Claude Code's tool search loads to its
                                           Responses API where it was loaded (an additional_tools item, which
                                           keeps the cache); OpenAI's API and a ChatGPT (Codex) account do so by
@@ -1344,13 +1346,17 @@ func applyPairs(p *provider.Provider, pairs []string) error {
 			// prompt exactly as the agent wrote it, the lines Google turns
 			// away with a 429 included; default rewords those lines
 			// (Provider.PromptAsWritten)
+			// agy: an Anthropic client's prompt goes as the AGY gateway
+			// profile sends it (Provider.AgyCompat)
 			switch strings.ToLower(v) {
 			case "as-written", "as-sent", "on", "yes":
-				p.PromptAsWritten = true
+				p.PromptAsWritten, p.AgyCompat = true, false
+			case "agy":
+				p.PromptAsWritten, p.AgyCompat = false, true
 			case "default", "no", "off":
-				p.PromptAsWritten = false
+				p.PromptAsWritten, p.AgyCompat = false, false
 			default:
-				return fmt.Errorf("prompt=as-written|default, not %q", v)
+				return fmt.Errorf("prompt=as-written|agy|default, not %q", v)
 			}
 		case "additional-tools":
 			// on: a tool an Anthropic client's tool search loads goes to

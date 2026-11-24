@@ -9101,7 +9101,7 @@ func (s *Server) forwardTranslated(ctx context.Context, p provider.Provider, to 
 			// known: on Antigravity that is the variant the effort picked,
 			// not the model magpie knows. It is built from what goes
 			// (sent), the billing line left out as for buildFor
-			body = codeAssistBody(p, sent, model, wires)
+			body = codeAssistBodyIn(p, sent, model, wires, in)
 		} else if wire != model {
 			// the vendor's own name for the model goes in the model field
 			// and nowhere else: everything above shaped the request from
@@ -10424,6 +10424,7 @@ func afterParse(proto provider.Protocol, body []byte, req *Request) (*Request, e
 	// (reasoning_carry.go)
 	unreasonCalls(req)
 	req.LastIsTurn = proto == provider.Chat || proto == provider.Responses
+	req.from = proto
 	if req.ToolChoice == "required" && len(req.Tools) == 0 && !req.WebSearch && requiredAllowlist(proto, body) {
 		return nil, fmt.Errorf("required tool choice has no callable tools after filtering")
 	}

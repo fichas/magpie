@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yetone/magpie/internal/agycompat"
 	"github.com/yetone/magpie/internal/catalog"
 	"github.com/yetone/magpie/internal/lazyre"
 	"github.com/yetone/magpie/internal/provider"
@@ -502,11 +503,23 @@ func codeAssistID(model, effort, agent string) string {
 // in force is looked up against the very id the envelope is addressed to:
 // asking twice reads the vendor's catalogue twice over for one answer.
 func codeAssistBody(p provider.Provider, r *Request, model string, wires map[string]string) []byte {
+	return codeAssistBodyIn(p, r, model, wires, nil)
+}
+
+// codeAssistBodyIn is codeAssistBody for a request that came in with the
+// headers in, which the AGY prompt profile reads DeepSeek Harness's
+// User-Agent from (agyCompatFor).
+func codeAssistBodyIn(p provider.Provider, r *Request, model string, wires map[string]string, in http.Header) []byte {
 	// a model the user lists by an id of theirs (SetModelID) is the
 	// account's own model: its envelope, the variant the effort picks and
 	// a name for the whole provider are of the vendor's id
 	model = p.OwnModelID(model)
 	sent := codeAssistID(model, r.Effort, p.Account.Agent)
+	if agyCompatFor(p, r) {
+		// the client's prompt as Antigravity's own client says it, before
+		// the lines Google turns away are reworded below as ever
+		r = agyCompat(r, agycompat.DSHUserAgent(in.Get("User-Agent")))
+	}
 	if p.Account.Agent == "antigravity" && !p.PromptAsWritten {
 		// the lines Google turns away, and the paragraphs
 		// it answers badly, reworded; the request the
